@@ -1,0 +1,13 @@
+{
+  "name": "auto-scrollable-container",
+  "homepage": "https://github.com/kshutkin/auto-scrollable-container",
+  "authors": [
+    "kostya80@gmail.com"
+  ],
+  "description": "adds support to scroll container when dragging items using ng-sortable",
+  "license": "MIT",
+  "main": "./auto-scrollable-container.js",
+  "dependencies": {
+    "angular": "1.x"
+  }
+}

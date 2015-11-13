@@ -5,6 +5,7 @@ angular.module('auto-scrollable-container', [])
 
         var defaults = {
                 eventName: 'scrollContainer',
+                broadcastEventName: 'scrollContainerBroadcast',
                 scrollSpeed: 20,
                 timeout: 100
             },
@@ -17,7 +18,7 @@ angular.module('auto-scrollable-container', [])
             $get: function () {
                 return angular.extend({}, defaults, userOptions);
             }
-        }
+        };
     })
     .factory("ascHandlerFactory", ['ascConfig', function(ascConfig) {
         return {
@@ -26,48 +27,75 @@ angular.module('auto-scrollable-container', [])
                     if (eventObj) {
                         scope.$emit(ascConfig.eventName, eventObj);
                     }
-                }
+                };
+            },
+            createBroadcastDragMoveHandler : function(scope) {
+                return function (itemPosition, containment, eventObj) {
+                    if (eventObj) {
+                        scope.$broadcast(ascConfig.broadcastEventName, eventObj);
+                    }
+                };
             }
         };
     }])
+    .directive("ascMessageRelay", ['ascConfig', function(ascConfig) {
+        return {
+            controller: ['$scope', function($scope) {
+                $scope.$on(ascConfig.eventName, function (event, eventObj) {
+                    event.stopPropagation();
+
+                    $scope.$broadcast(ascConfig.broadcastEventName, eventObj);
+                });
+            }]
+        };
+    }])
     .directive("ascContainer", ['$document', '$window', '$timeout', 'ascConfig', function($document, $window, $timeout, ascConfig) {
-        return function(scope, element) {
+        return {
+            link: function(scope, element) {
 
-            var mouseY;
+                var mouseY;
 
-            scope.$on(ascConfig.eventName, function (event, eventObj) {
-                event.stopPropagation();
+                scope.$on(ascConfig.eventName, function (event, eventObj) {
+                    event.stopPropagation();
 
-                var targetY = eventObj.pageY - ($window.pageYOffset || $document[0].documentElement.scrollTop);
+                    handleDragMove(eventObj);
+                });
 
-                scrollIfNeeded(targetY);
-            });
+                scope.$on(ascConfig.broadcastEventName, function (event, eventObj) {
+                    handleDragMove(eventObj);
+                });
 
+                $document.on('mousemove', storePosition);
 
-            $document.on('mousemove', storePosition);
+                scope.$on('$destroy', function() {
+                    $document.off('mousemove', storePosition);
+                });
 
-            scope.$on('$destroy', function() {
-                $document.off('mousemove', storePosition);
-            });
+                function handleDragMove(eventObj) {
+                    var targetY = eventObj.pageY - ($window.pageYOffset || $document[0].documentElement.scrollTop);
 
-            function storePosition(event) {
-                mouseY = event.pageY
-            }
+                    scrollIfNeeded(targetY);
+                }
 
-            function checkPosition() {
-                scrollIfNeeded(mouseY);
-            }
+                function storePosition(event) {
+                    mouseY = event.clientY;
+                }
 
-            function scrollIfNeeded(targetY) {
-                var container = element[0].getBoundingClientRect();
-                if (targetY < container.top) {
-                    element[0].scrollTop = element[0].scrollTop - ascConfig.scrollSpeed;
+                function checkPosition() {
+                    scrollIfNeeded(mouseY);
+                }
 
-                    $timeout(checkPosition, ascConfig.timeout);
-                } else if (targetY > container.bottom) {
-                    element[0].scrollTop = element[0].scrollTop + ascConfig.scrollSpeed;
+                function scrollIfNeeded(targetY) {
+                    var top = element[0].clientTop, container = element[0].getBoundingClientRect();
+                    if (targetY < container.top) {
+                        element[0].scrollTop = element[0].scrollTop - ascConfig.scrollSpeed;
 
-                    $timeout(checkPosition, ascConfig.timeout);
+                        $timeout(checkPosition, ascConfig.timeout);
+                    } else if (targetY > container.bottom) {
+                        element[0].scrollTop = element[0].scrollTop + ascConfig.scrollSpeed;
+
+                        $timeout(checkPosition, ascConfig.timeout);
+                    }
                 }
             }
         };
